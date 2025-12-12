@@ -6,7 +6,8 @@ const {
   getProject,
   updateProject,
   deleteProject,
-  getProjectDetails
+  getProjectDetails,
+  getProjectHouseList   
 } = require("../controllers/homeController");
 
 // CREATE
@@ -26,5 +27,9 @@ router.delete("/:id", deleteProject);
 
 // GET WING-WISE OR PLOT-WISE HOUSE LIST
 router.get("/details/:id", getProjectDetails);
+
+// GET HOUSE LIST DIRECTLY (WITHOUT PROJECTDETAILS)
+router.get("/houses/:id", getProjectHouseList);
+
 
 module.exports = router;

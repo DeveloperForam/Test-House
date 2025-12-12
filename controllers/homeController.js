@@ -1,5 +1,4 @@
 const Lily = require("../models/home");
-const ProjectDetails = require("../models/ProjectDetails");
 
 // CREATE PROJECT
 exports.createProject = async (req, res) => {
@@ -79,6 +78,29 @@ exports.getProjectDetails = async (req, res) => {
     }).sort({ wing: 1 });
 
     res.json(details);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+
+// GET ONLY HOUSE LIST FROM MAIN MODEL (Lily)
+exports.getProjectHouseList = async (req, res) => {
+  try {
+    const project = await Lily.findOne({ id: req.params.id });
+
+    if (!project) {
+      return res.status(404).json({ message: "Project not found" });
+    }
+
+    res.json({
+      projectId: project.id,
+      projectName: project.projectName,
+      projectType: project.projectType,
+      totalHouse: project.totalHouse,
+      houseNumbers: project.houseNumbers
+    });
+
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

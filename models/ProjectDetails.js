@@ -1,18 +1,15 @@
-// models/projectDetails.js
 const mongoose = require("mongoose");
+const Home = require("./home"); // your LilySchema
 
-const ProjectDetailsSchema = new mongoose.Schema(
-  {
-    projectId: { type: Number, required: true }, // reference to home.js (LilySchema)
-
-    // These are stored for record
-    houseNumbers: { type: [String] },
-    perHouseCost: { type: Number },
-    totalHouseCost: { type: Number },
-    location: { type: String },
-    projectType: { type: String },
-  },
-  { timestamps: true }
-);
+const ProjectDetailsSchema = new mongoose.Schema({
+    project: { type: mongoose.Schema.Types.ObjectId, ref: "Home", required: true },
+    projectName: String,
+    projectType: String,
+    location: String,
+    wingsOrPlots: Number,
+    houseNumbers: [String],
+    perHouseCost: Number,
+    totalHouseCost: Number,
+}, { timestamps: true });
 
 module.exports = mongoose.model("ProjectDetails", ProjectDetailsSchema);

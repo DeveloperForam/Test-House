@@ -3,6 +3,8 @@ const cors = require("cors");
 const connectDB = require("./config/db");
 require("dotenv").config();
 const lilyRoutes  = require("./routes/homeRoutes");
+const projectDetailsRoutes = require("./routes/projectDetailsRoutes");
+
 
 const app = express();
 app.use(cors());
@@ -14,6 +16,8 @@ connectDB().then(() => {
 
   // Register routes after DB is connected
   app.use("/api/lily", lilyRoutes );
+app.use("/api", projectDetailsRoutes);
+
 
 
   const PORT = process.env.PORT || 5000;
