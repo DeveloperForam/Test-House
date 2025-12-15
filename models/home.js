@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 const Counter = require("./counter");
+// const House = require("./house");
 
 const LilySchema = new mongoose.Schema(
   {
@@ -82,5 +83,7 @@ LilySchema.pre("save", async function () {
   // Auto calculate total cost
   this.totalHouseCost = this.perHouseCost * this.totalHouse * this.squareFeet;
 });
+
+
 
 module.exports = mongoose.model("Lily", LilySchema);

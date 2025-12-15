@@ -3,7 +3,7 @@ const cors = require("cors");
 const connectDB = require("./config/db");
 require("dotenv").config();
 const lilyRoutes  = require("./routes/homeRoutes");
-const projectDetailsRoutes = require("./routes/projectDetailsRoutes");
+  
 
 
 const app = express();
@@ -15,8 +15,8 @@ connectDB().then(() => {
   console.log("MongoDB connected");
 
   // Register routes after DB is connected
-  app.use("/api/lily", lilyRoutes );
-app.use("/api", projectDetailsRoutes);
+  app.use("/api/lily", lilyRoutes ); 
+  app.use("/api/listings", require("./routes/houseRoutes"));
 
 
 
