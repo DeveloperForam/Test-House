@@ -1,4 +1,6 @@
 const Lily = require("../models/home");
+const HouseListing = require("../models/house");
+
 
 // CREATE PROJECT
 exports.createProject = async (req, res) => {
@@ -18,10 +20,19 @@ exports.createProject = async (req, res) => {
 // GET ALL PROJECTS
 exports.getProjects = async (req, res) => {
   try {
-    const data = await Lily.find().sort({ id: 1 });
-    res.json(data);
+    const data = await Lily.find()
+      .select("id projectName projectType location")
+      .sort({ id: 1 });
+
+    res.json({
+      success: true,
+      data: data,
+    });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({
+      success: false,
+      message: err.message,
+    });
   }
 };
 
@@ -73,13 +84,13 @@ exports.deleteProject = async (req, res) => {
 // GET WING/PLOT DETAILS FOR A PROJECT
 exports.getProjectDetails = async (req, res) => {
   try {
-    const details = await ProjectDetails.find({
-      projectId: req.params.id,
-    }).sort({ wing: 1 });
+    const projects = await Lily.find({})
+      .select("id projectName projectType location")
+      .sort({ id: 1 });
 
-    res.json(details);
+    res.json({ success: true, data: projects });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ success: false, message: err.message });
   }
 };
 
@@ -87,21 +98,73 @@ exports.getProjectDetails = async (req, res) => {
 // GET ONLY HOUSE LIST FROM MAIN MODEL (Lily)
 exports.getProjectHouseList = async (req, res) => {
   try {
-    const project = await Lily.findOne({ id: req.params.id });
+    const { id } = req.params;
 
+    const project = await Lily.findOne({ id });
     if (!project) {
-      return res.status(404).json({ message: "Project not found" });
+      return res.status(404).json({
+        success: false,
+        message: "Project not found",
+      });
     }
 
-    res.json({
+    // Fetch statuses from HouseListing
+    const listings = await HouseListing.find({ projectId: project.id });
+
+    // Convert to lookup map
+    const statusMap = {};
+    listings.forEach((h) => {
+      statusMap[h.houseNumber] = h.status;
+    });
+
+    // Merge Lily + status
+    const houses = project.houseNumbers.map((no) => ({
       projectId: project.id,
       projectName: project.projectName,
       projectType: project.projectType,
-      totalHouse: project.totalHouse,
-      houseNumbers: project.houseNumbers
-    });
+      houseNumber: no,
+      squareFeet: project.squareFeet,
+      price: project.perHouseCost,
+      status: statusMap[no] || "available", // 👈 DEFAULT
+    }));
 
+    res.json({ success: true, data: houses });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
+
+exports.updateHouseStatus = async (req, res) => {
+  const { projectId, houseNumber } = req.params;
+  const { status } = req.body;
+  try {
+    // ensure numeric projectId when querying the HouseListing (schema expects Number)
+    const pid = Number(projectId);
+
+    // find project to populate the ObjectId reference required by the schema
+    const projectDoc = await Lily.findOne({ id: pid });
+    if (!projectDoc) {
+      return res.status(404).json({ success: false, message: "Project not found" });
+    }
+
+    const update = {
+      status,
+      project: projectDoc._id,
+      projectId: projectDoc.id,
+      houseNumber,
+    };
+
+    const record = await HouseListing.findOneAndUpdate(
+      { projectId: pid, houseNumber },
+      update,
+      { upsert: true, new: true, runValidators: true, setDefaultsOnInsert: true }
+    );
+
+    res.json({ success: true, data: record });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
   }
 };

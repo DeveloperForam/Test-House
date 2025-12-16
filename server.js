@@ -16,7 +16,7 @@ connectDB().then(() => {
 
   // Register routes after DB is connected
   app.use("/api/lily", lilyRoutes ); 
-  app.use("/api/listings", require("./routes/houseRoutes"));
+  // app.use("/api/listings", require("./routes/houseRoutes"));
 
 
 

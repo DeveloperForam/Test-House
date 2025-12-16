@@ -7,7 +7,8 @@ const {
   updateProject,
   deleteProject,
   getProjectDetails,
-  getProjectHouseList   
+  getProjectHouseList ,
+  updateHouseStatus,  
 } = require("../controllers/homeController");
 
 // CREATE
@@ -30,6 +31,10 @@ router.get("/details/:id", getProjectDetails);
 
 // GET HOUSE LIST DIRECTLY (WITHOUT PROJECTDETAILS)
 router.get("/houses/:id", getProjectHouseList);
+
+//status update
+router.patch("/:projectId/:houseNumber", updateHouseStatus);
+
 
 
 module.exports = router;
