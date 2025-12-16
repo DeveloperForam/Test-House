@@ -29,7 +29,7 @@ exports.getHouseListing = async (req, res) => {
       projectType: project.projectType,
       houseNumber: no,
       squareFeet: project.squareFeet,
-      price: project.squareFeet * project.perHouseCost,
+      price: project.perHouseCost,
     }));
 
     res.json({ success: true, data: houses });

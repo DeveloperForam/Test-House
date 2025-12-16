@@ -21,7 +21,7 @@ const HouseListingSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// One house number per project
+// One house per project
 HouseListingSchema.index(
   { projectId: 1, houseNumber: 1 },
   { unique: true }
