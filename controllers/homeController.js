@@ -36,6 +36,24 @@ exports.getProjects = async (req, res) => {
   }
 };
 
+exports.getProjectsCount = async (req, res) => {
+  try {
+    const total = await Lily.countDocuments();
+
+    res.json({
+      success: true,
+      totalProjects: total,
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
+
+
+
 // GET ONE PROJECT
 exports.getProject = async (req, res) => {
   try {
@@ -72,7 +90,7 @@ exports.updateProject = async (req, res) => {
 // DELETE PROJECT
 exports.deleteProject = async (req, res) => {
   try {
-    await Lily.findOneAndDelete({ id: req.params.id });
+    await Lily.useFindAndModify({ id: req.params.id });
     await ProjectDetails.deleteMany({ projectId: req.params.id });
 
     res.json({ message: "Project deleted successfully" });
@@ -168,3 +186,38 @@ exports.updateHouseStatus = async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 };
+
+exports.getHouseStatusCounts = async (req, res) => {
+  try {
+    const result = await HouseListing.aggregate([
+      {
+        $group: {
+          _id: "$status",
+          count: { $sum: 1 },
+        },
+      },
+    ]);
+
+    // Default counts
+    const counts = {
+      available: 0,
+      booked: 0,
+      sold: 0,
+    };
+
+    result.forEach((item) => {
+      counts[item._id] = item.count;
+    });
+
+    res.json({
+      success: true,
+      data: counts,
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
+
