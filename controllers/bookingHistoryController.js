@@ -5,12 +5,12 @@ const BookingHistory = require("../models/bookingHistory");
 exports.addPayment = async (req, res) => {
   try {
     const {
-  bookingId,
-  amountReceived,
-  paymentMethod,
-  paymentDetails,   // ✅ NEW
-  paymentReceivedDate,
-} = req.body;
+      bookingId,
+      amountReceived,
+      paymentMethod,
+      paymentDetails,
+      paymentReceivedDate,
+    } = req.body;
 
     if (!bookingId || !amountReceived || !paymentMethod || !paymentReceivedDate) {
       return res.status(400).json({ message: "Required fields missing" });
@@ -21,29 +21,52 @@ exports.addPayment = async (req, res) => {
       return res.status(404).json({ message: "Booking not found" });
     }
 
+    /* ================= AUTO ADD ADVANCE ENTRY (ONCE) ================= */
+    const historyCount = await BookingHistory.countDocuments({
+      bookingId: booking._id,
+    });
+
+    if (historyCount === 0 && booking.advancePayment > 0) {
+      const advanceHistory = new BookingHistory({
+        bookingId: booking._id,
+        customerName: booking.customerName,
+        houseNumber: booking.houseNumber,
+        totalAmount: booking.totalAmount,
+        advancePayment: booking.advancePayment,
+        pendingAmount: booking.totalAmount - booking.advancePayment,
+        amountReceived: booking.advancePayment,
+        paymentMethod: "advance",
+        paymentDetails: "Advance payment at booking time",
+        paymentReceivedDate: booking.createdAt,
+      });
+
+      await advanceHistory.save();
+    }
+
+    /* ================= VALIDATION ================= */
     if (amountReceived > booking.pendingAmount) {
       return res.status(400).json({
         message: "Amount exceeds pending payment",
       });
     }
 
+    /* ================= ADD NEW PAYMENT ================= */
     const history = new BookingHistory({
-  bookingId: booking._id,
-  customerName: booking.customerName,
-  houseNumber: booking.houseNumber,
-  totalAmount: booking.totalPayment,
-  advancePayment: booking.advancePayment,
-  pendingAmount: booking.pendingAmount - amountReceived,
-  amountReceived,
-  paymentMethod,
-  paymentDetails, // ✅ NEW
-  paymentReceivedDate,
-});
-
+      bookingId: booking._id,
+      customerName: booking.customerName,
+      houseNumber: booking.houseNumber,
+      totalAmount: booking.totalAmount,
+      advancePayment: booking.advancePayment,
+      pendingAmount: booking.pendingAmount - amountReceived,
+      amountReceived,
+      paymentMethod,
+      paymentDetails,
+      paymentReceivedDate,
+    });
 
     booking.pendingAmount -= amountReceived;
-    await booking.save();
 
+    await booking.save();
     await history.save();
 
     res.status(201).json({
@@ -54,6 +77,7 @@ exports.addPayment = async (req, res) => {
     res.status(400).json({ error: error.message });
   }
 };
+
 
 /* ================= GET DATE-WISE HISTORY ================= */
 exports.getPaymentHistory = async (req, res) => {
@@ -100,3 +124,5 @@ exports.getBookingById = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+

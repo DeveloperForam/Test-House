@@ -8,6 +8,8 @@ const BookingHistorySchema = new mongoose.Schema(
       required: true,
     },
 
+    projectName: { type: String, required: true }, // ✅ New field for project name
+
     customerName: { type: String, required: true },
     houseNumber: { type: String, required: true },
 

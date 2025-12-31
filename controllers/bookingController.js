@@ -10,71 +10,105 @@ exports.createBooking = async (req, res) => {
       customerName,
       mobileNo,
       paymentType,
-      totalPayment,
-      advancePayment,
+
+      totalSqFeet,
+      pricePerSqFeet,
+
+      advancePayment = 0,
       emiMonths,
       monthlyEmi,
     } = req.body;
 
+    /* ===== Validation ===== */
     if (!projectId || !houseNumber) {
-      return res.status(400).json({ success: false, message: "Missing project or house" });
+      return res.status(400).json({
+        success: false,
+        message: "Project and house number are required",
+      });
     }
 
-    if (advancePayment > totalPayment) {
-      return res.status(400).json({ success: false, message: "Advance cannot exceed total" });
+    if (!totalSqFeet || !pricePerSqFeet) {
+      return res.status(400).json({
+        success: false,
+        message: "Total sq.ft and price per sq.ft are required",
+      });
     }
 
-    /* Check house */
+    /* ===== STEP 1: TOTAL AMOUNT ===== */
+    const totalAmount =
+      Number(totalSqFeet) * Number(pricePerSqFeet);
+
+    /* ===== STEP 2: ADVANCE AMOUNT ===== */
+    const advance = Number(advancePayment) || 0;
+
+    if (advance > totalAmount) {
+      return res.status(400).json({
+        success: false,
+        message: "Advance amount cannot be greater than total amount",
+      });
+    }
+
+    /* ===== STEP 3: PENDING AMOUNT ===== */
+    const pendingAmount = totalAmount - advance;
+
+    /* ===== Check House Status ===== */
     let house = await HouseListing.findOne({ projectId, houseNumber });
+
     if (house && house.status !== "available") {
-      return res.status(400).json({ success: false, message: "House already booked" });
+      return res.status(400).json({
+        success: false,
+        message: "House already booked",
+      });
     }
 
     if (!house) {
       house = new HouseListing({ projectId, houseNumber });
     }
+
     house.status = "booked";
     await house.save();
 
-    /* Pending Amount */
-    // let pendingAmount = totalPayment - advancePayment;
-
-    const total = Number(totalPayment) || 0;
-const advance = Number(advancePayment) || 0;
-
-if (advance > total) {
-  return res.status(400).json({
-    success: false,
-    message: "Advance cannot be greater than total amount",
-  });
-}
-
-let pendingAmount = total - advance;
-
-    /* EMI Schedule */
+    /* ===== EMI Schedule (optional) ===== */
     let emiSchedule = [];
+
     if (paymentType === "emi") {
       if (!emiMonths || !monthlyEmi) {
-        return res.status(400).json({ success: false, message: "EMI details missing" });
+        return res.status(400).json({
+          success: false,
+          message: "EMI months and amount are required",
+        });
       }
 
       let remaining = pendingAmount;
+
       for (let i = 1; i <= emiMonths; i++) {
         const amount = i === emiMonths ? remaining : monthlyEmi;
-        emiSchedule.push({ monthNo: i, amount });
+
+        emiSchedule.push({
+          monthNo: i,
+          amount,
+          status: "pending",
+        });
+
         remaining -= monthlyEmi;
       }
     }
 
+    /* ===== Save Booking ===== */
     const booking = await Booking.create({
       projectId,
       houseNumber,
       customerName,
       mobileNo,
+
+      totalSqFeet,
+      pricePerSqFeet,
+
+      totalAmount,        // ✅ FIRST
+      advancePayment: advance, // ✅ SECOND
+      pendingAmount,      // ✅ THIRD
+
       paymentType,
-      totalPayment,
-      advancePayment,
-      pendingAmount,
       emiMonths: paymentType === "emi" ? emiMonths : 0,
       monthlyEmi: paymentType === "emi" ? monthlyEmi : 0,
       emiSchedule,
@@ -86,9 +120,13 @@ let pendingAmount = total - advance;
       data: booking,
     });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    res.status(500).json({
+      success: false,
+      message: err.message,
+    });
   }
 };
+
 
 
 

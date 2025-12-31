@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+
 const {
   createProject,
   getProjects,
@@ -8,7 +9,6 @@ const {
   deleteProject,
   getProjectDetails,
   getProjectHouseList,
-  updateHouseStatus,
   getProjectsCount,
   getHouseStatusCounts,
 } = require("../controllers/homeController");
@@ -16,27 +16,20 @@ const {
 // CREATE PROJECT
 router.post("/", createProject);
 
-// GET ALL PROJECTS
-router.get("/", getProjects);
+// COUNTS
 router.get("/count", getProjectsCount);
 router.get("/status-count", getHouseStatusCounts);
 
-// GET SINGLE PROJECT
-router.get("/:id", getProject);
-
-// UPDATE PROJECT
-router.put("/:id", updateProject);
-
-// DELETE PROJECT
-router.delete("/:id", deleteProject);
-
-// GET PROJECT DETAILS (WINGS / PLOTS)
+// DETAILS & HOUSES
 router.get("/details/:id", getProjectDetails);
-
-// GET HOUSE LIST DIRECTLY
 router.get("/houses/:projectId", getProjectHouseList);
 
-// UPDATE HOUSE STATUS (BOOK / SELL / CANCEL)
-router.patch("/:projectId/:houseNumber", updateHouseStatus);
+// PROJECT CRUD
+router.get("/", getProjects);
+router.get("/:id", getProject);
+router.put("/:id", updateProject);
+router.delete("/:id", deleteProject);
+
+// ❌ REMOVED updateHouseStatus route
 
 module.exports = router;
