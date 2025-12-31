@@ -1,13 +1,14 @@
 const Lily = require("../models/home");
 const HouseListing = require("../models/house");
+const Booking = require("../models/booking");
 
-
+// ==============================
 // CREATE PROJECT
+// ==============================
 exports.createProject = async (req, res) => {
   try {
     const project = new Lily(req.body);
-    await project.save(); // auto generates house numbers + project details
-
+    await project.save();
     res.status(201).json({
       message: "Project created successfully",
       data: project,
@@ -17,89 +18,82 @@ exports.createProject = async (req, res) => {
   }
 };
 
+// ==============================
 // GET ALL PROJECTS
+// ==============================
 exports.getProjects = async (req, res) => {
   try {
-    const data = await Lily.find()
-      .select("id projectName projectType location")
-      .sort({ id: 1 });
+    const projects = await Lily.find().select(`
+      id
+      projectName
+      projectType
+      location
+      totalWings
+      totalFloors
+      perFloorHouse
+      totalPlots
+    `);
 
-    res.json({
-      success: true,
-      data: data,
-    });
+    res.json({ success: true, data: projects });
   } catch (err) {
-    res.status(500).json({
-      success: false,
-      message: err.message,
-    });
+    res.status(500).json({ success: false, message: err.message });
   }
 };
 
+// ==============================
+// GET PROJECT COUNT
+// ==============================
 exports.getProjectsCount = async (req, res) => {
   try {
     const total = await Lily.countDocuments();
-
-    res.json({
-      success: true,
-      totalProjects: total,
-    });
+    res.json({ success: true, totalProjects: total });
   } catch (err) {
-    res.status(500).json({
-      success: false,
-      message: err.message,
-    });
+    res.status(500).json({ success: false, message: err.message });
   }
 };
 
-
-
+// ==============================
 // GET ONE PROJECT
+// ==============================
 exports.getProject = async (req, res) => {
   try {
     const project = await Lily.findOne({ id: req.params.id });
+    if (!project) return res.status(404).json({ success: false, message: "Project not found" });
     res.json(project);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };
 
+// ==============================
 // UPDATE PROJECT
+// ==============================
 exports.updateProject = async (req, res) => {
   try {
-    // REMOVE OLD DETAILS (auto-regenerated)
-    await ProjectDetails.deleteMany({ projectId: req.params.id });
-
-    const updated = await Lily.findOneAndUpdate(
-      { id: req.params.id },
-      req.body,
-      { new: true }
-    );
-
-    await updated.save(); // regenerate wings/plots list
-
-    res.json({
-      message: "Project updated successfully",
-      data: updated,
-    });
+    const updated = await Lily.findOneAndUpdate({ id: req.params.id }, req.body, { new: true });
+    await updated.save();
+    res.json({ message: "Project updated successfully", data: updated });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };
 
+// ==============================
 // DELETE PROJECT
+// ==============================
 exports.deleteProject = async (req, res) => {
   try {
-    await Lily.useFindAndModify({ id: req.params.id });
-    await ProjectDetails.deleteMany({ projectId: req.params.id });
-
+    await Lily.deleteOne({ id: req.params.id });
+    await HouseListing.deleteMany({ projectId: Number(req.params.id) });
     res.json({ message: "Project deleted successfully" });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };
 
-// GET WING/PLOT DETAILS FOR A PROJECT
+// ==============================
+// GET PROJECT DETAILS (WINGS / PLOTS)
+// ==============================
 exports.getProjectDetails = async (req, res) => {
   try {
     const projects = await Lily.find({})
@@ -112,112 +106,83 @@ exports.getProjectDetails = async (req, res) => {
   }
 };
 
-
-// GET ONLY HOUSE LIST FROM MAIN MODEL (Lily)
+// ==============================
+// GET HOUSE LIST DIRECTLY
+// ==============================
 exports.getProjectHouseList = async (req, res) => {
   try {
-    const { id } = req.params;
+    const projectId = Number(req.params.projectId);
 
-    const project = await Lily.findOne({ id });
+    const project = await Lily.findOne({ id: projectId });
     if (!project) {
-      return res.status(404).json({
-        success: false,
-        message: "Project not found",
-      });
+      return res
+        .status(404)
+        .json({ success: false, message: "Project not found" });
     }
 
-    // Fetch statuses from HouseListing
-    const listings = await HouseListing.find({ projectId: project.id });
+    // ✅ booking collection decides availability
+    const bookings = await Booking.find({ projectId });
+    const bookedSet = new Set(bookings.map(b => String(b.houseNumber)));
 
-    // Convert to lookup map
-    const statusMap = {};
-    listings.forEach((h) => {
-      statusMap[h.houseNumber] = h.status;
-    });
-
-    // Merge Lily + status
-    const houses = project.houseNumbers.map((no) => ({
-      projectId: project.id,
-      projectName: project.projectName,
-      projectType: project.projectType,
+    const houses = project.houseNumbers.map(no => ({
+      projectId,
       houseNumber: no,
-      squareFeet: project.squareFeet,
-      price: project.perHouseCost,
-      status: statusMap[no] || "available", // 👈 DEFAULT
+      status: bookedSet.has(String(no)) ? "booked" : "available",
     }));
 
     res.json({ success: true, data: houses });
   } catch (err) {
-    res.status(500).json({
-      success: false,
-      message: err.message,
-    });
+    console.error(err);
+    res.status(500).json({ success: false, message: err.message });
   }
 };
 
+// ==============================
+// UPDATE HOUSE STATUS (BOOK / SOLD / CANCEL)
+// ==============================
 exports.updateHouseStatus = async (req, res) => {
   const { projectId, houseNumber } = req.params;
-  const { status } = req.body;
-  try {
-    // ensure numeric projectId when querying the HouseListing (schema expects Number)
-    const pid = Number(projectId);
+  const { action, customerName, customerPhone, amount } = req.body;
 
-    // find project to populate the ObjectId reference required by the schema
+  try {
+    const pid = Number(projectId);
     const projectDoc = await Lily.findOne({ id: pid });
-    if (!projectDoc) {
-      return res.status(404).json({ success: false, message: "Project not found" });
+    if (!projectDoc) return res.status(404).json({ success: false, message: "Project not found" });
+
+    let house = await HouseListing.findOne({ projectId: pid, houseNumber });
+    if (!house) house = new HouseListing({ project: projectDoc._id, projectId: pid, houseNumber });
+
+    if (action === "book") {
+      if (house.status === "sold") return res.status(400).json({ success: false, message: "House already sold" });
+      house.booked = { customerName, customerPhone, advanceAmount: amount };
+      house.sold = null;
+    } else if (action === "sell") {
+      house.sold = { customerName, customerPhone, totalAmount: amount };
+      house.booked = null;
+    } else if (action === "cancel") {
+      if (house.status !== "booked") return res.status(400).json({ success: false, message: "House is not booked" });
+      house.booked = null;
+    } else {
+      return res.status(400).json({ success: false, message: "Invalid action" });
     }
 
-    const update = {
-      status,
-      project: projectDoc._id,
-      projectId: projectDoc.id,
-      houseNumber,
-    };
-
-    const record = await HouseListing.findOneAndUpdate(
-      { projectId: pid, houseNumber },
-      update,
-      { upsert: true, new: true, runValidators: true, setDefaultsOnInsert: true }
-    );
-
-    res.json({ success: true, data: record });
+    await house.save();
+    res.json({ success: true, data: house });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
 };
 
+// ==============================
+// GET HOUSE STATUS COUNTS
+// ==============================
 exports.getHouseStatusCounts = async (req, res) => {
   try {
-    const result = await HouseListing.aggregate([
-      {
-        $group: {
-          _id: "$status",
-          count: { $sum: 1 },
-        },
-      },
-    ]);
-
-    // Default counts
-    const counts = {
-      available: 0,
-      booked: 0,
-      sold: 0,
-    };
-
-    result.forEach((item) => {
-      counts[item._id] = item.count;
-    });
-
-    res.json({
-      success: true,
-      data: counts,
-    });
+    const result = await HouseListing.aggregate([{ $group: { _id: "$status", count: { $sum: 1 } } }]);
+    const counts = { available: 0, booked: 0, sold: 0 };
+    result.forEach((item) => { counts[item._id] = item.count; });
+    res.json({ success: true, data: counts });
   } catch (err) {
-    res.status(500).json({
-      success: false,
-      message: err.message,
-    });
+    res.status(500).json({ success: false, message: err.message });
   }
 };
-

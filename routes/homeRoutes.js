@@ -7,41 +7,36 @@ const {
   updateProject,
   deleteProject,
   getProjectDetails,
-  getProjectHouseList ,
+  getProjectHouseList,
   updateHouseStatus,
-  getProjectsCount,  
+  getProjectsCount,
   getHouseStatusCounts,
 } = require("../controllers/homeController");
 
-// CREATE
+// CREATE PROJECT
 router.post("/", createProject);
 
-// GET ALL
+// GET ALL PROJECTS
 router.get("/", getProjects);
 router.get("/count", getProjectsCount);
 router.get("/status-count", getHouseStatusCounts);
 
-
 // GET SINGLE PROJECT
 router.get("/:id", getProject);
 
-// UPDATE
+// UPDATE PROJECT
 router.put("/:id", updateProject);
 
-// DELETE
+// DELETE PROJECT
 router.delete("/:id", deleteProject);
 
-// GET WING-WISE OR PLOT-WISE HOUSE LIST
+// GET PROJECT DETAILS (WINGS / PLOTS)
 router.get("/details/:id", getProjectDetails);
 
-// GET HOUSE LIST DIRECTLY (WITHOUT PROJECTDETAILS)
-router.get("/houses/:id", getProjectHouseList);
+// GET HOUSE LIST DIRECTLY
+router.get("/houses/:projectId", getProjectHouseList);
 
-//status update
+// UPDATE HOUSE STATUS (BOOK / SELL / CANCEL)
 router.patch("/:projectId/:houseNumber", updateHouseStatus);
-
-
-
-
 
 module.exports = router;

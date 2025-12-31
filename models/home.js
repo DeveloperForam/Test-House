@@ -1,44 +1,33 @@
 const mongoose = require("mongoose");
 const Counter = require("./counter");
-// const House = require("./house");
 
 const LilySchema = new mongoose.Schema(
   {
     id: { type: Number, unique: true },
 
-    projectName: { type: String, required: true, trim: true },
-
+    projectName: { type: String, required: true },
     projectType: {
       type: String,
-      required: true,
       enum: ["flat", "banglow", "row-house"],
+      required: true,
     },
 
-    location: { type: String, required: true },
+    location: String,
 
-    perHouseCost: { type: Number, required: true },
+    totalWings: Number,
+    totalFloors: Number,
+    perFloorHouse: Number,
+    totalPlots: Number,
 
-    totalHouseCost: { type: Number }, // Auto calculated
-
-    squareFeet: { type: Number, required: true },
-
-    // For Flats
-    totalWings: { type: Number },
-    totalFloors: { type: Number },
-    perFloorHouse: { type: Number },
-    totalHouse: { type: Number },
-
-    houseNumbers: { type: [String] },   // <-- NEW FIELD
-
-    // For banglow / row-house
-    totalPlots: { type: Number },
+    totalHouse: Number,
+    houseNumbers: [String],
   },
   { timestamps: true }
 );
 
-// Auto Increment + Calculations
+/* ================= PRE SAVE ================= */
 LilySchema.pre("save", async function () {
-  // Auto increment id
+  // Auto increment ID
   if (!this.id) {
     const counter = await Counter.findOneAndUpdate(
       { model: "lily" },
@@ -48,42 +37,34 @@ LilySchema.pre("save", async function () {
     this.id = counter.count;
   }
 
-  // Calculate total houses based on project type
+  // Flat logic
   if (this.projectType === "flat") {
-    this.totalHouse = this.totalWings * this.totalFloors * this.perFloorHouse;
+    this.totalHouse =
+      (this.totalWings || 0) *
+      (this.totalFloors || 0) *
+      (this.perFloorHouse || 0);
 
-    // ------------------------
-    // GENERATE HOUSE NUMBERS
-    // ------------------------
     const houses = [];
-    for (let w = 0; w < this.totalWings; w++) {
-      const wingLetter = String.fromCharCode(65 + w); // A B C ...
 
+    for (let w = 0; w < this.totalWings; w++) {
+      const wing = String.fromCharCode(65 + w); // A, B, C
       for (let f = 1; f <= this.totalFloors; f++) {
         for (let h = 1; h <= this.perFloorHouse; h++) {
-          const houseNo = `${wingLetter}-${f}${String(h).padStart(2, "0")}`;
-          houses.push(houseNo);
+          houses.push(`${wing}-${f}${String(h).padStart(2, "0")}`);
         }
       }
     }
+
     this.houseNumbers = houses;
   }
-
-  else if (this.projectType === "banglow" || this.projectType === "row-house") {
-    this.totalHouse = this.totalPlots;
-
-    // Bungalows / Row-houses house numbering
-    const houses = [];
-    for (let i = 1; i <= this.totalPlots; i++) {
-      houses.push(`${String(i).padStart(2, "0")}`); // P-001, P-002
-    }
-    this.houseNumbers = houses;
+  // Banglow / Row-house logic
+  else {
+    this.totalHouse = this.totalPlots || 0;
+    this.houseNumbers = Array.from(
+      { length: this.totalPlots || 0 },
+      (_, i) => String(i + 1).padStart(2, "0")
+    );
   }
-
-  // Auto calculate total cost
-  this.totalHouseCost = this.perHouseCost * this.totalHouse * this.squareFeet;
 });
-
-
 
 module.exports = mongoose.model("Lily", LilySchema);

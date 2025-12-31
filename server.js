@@ -5,6 +5,9 @@ require("dotenv").config();
 
 const lilyRoutes = require("./routes/homeRoutes");
 const serviceRoutes = require("./routes/serviceRoutes");
+const bookingRoutes = require("./routes/bookingRoutes");
+const bookingHistoryRoutes = require("./routes/bookingHistoryRoutes");
+
 
 const app = express();
 
@@ -23,6 +26,9 @@ connectDB()
 
     app.use("/api/lily", lilyRoutes);
     app.use("/api/services", serviceRoutes);
+    app.use("/api/bookings", bookingRoutes);
+    app.use("/api/payment-history", bookingHistoryRoutes);
+
 
     const PORT = process.env.PORT || 5000;
     app.listen(PORT, () =>
